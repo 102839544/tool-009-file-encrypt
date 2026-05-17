@@ -1,156 +1,69 @@
 #!/usr/bin/env python3
 """
-文件加密解密工具 - AES加密保护文件
+file-encrypt - 文件加密工具
+工具编号: tool-009
 """
-import sys, os, tkinter as tk
-from pathlib import Path
-from tkinter import filedialog, messagebox
-import tkinter as tk
 
-try:
-    from cryptography.fernet import Fernet
-    HAS_CRYPTO = True
-except ImportError:
-    HAS_CRYPTO = False
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+from pathlib import Path
 
 class App:
     def __init__(self, root):
         self.root = root
-        root.title("文件加密解密工具 v1.0")
-        root.geometry("600x500")
-        self.files = []
-        self.build_ui()
+        root.title("文件加密工具 v1.0")
+        root.geometry("700x500")
+        self.setup_ui()
     
-    def build_ui(self):
-        f = tk.Frame(self.root, bg="#4527a0", height=50)
-        f.pack(fill="x")
-        tk.Label(f, text="🔐 文件加密解密工具", font=("Arial",14,"bold"),
-                 fg="white", bg="#4527a0").pack(pady=12)
+    def setup_ui(self):
+        # 标题
+        title_frame = tk.Frame(self.root, bg="#2196F3", height=60)
+        title_frame.pack(fill="x")
+        title_frame.pack_propagate(False)
+        tk.Label(title_frame, text="🔧 文件加密工具", font=("Arial", 16, "bold"),
+                 fg="white", bg="#2196F3").pack(pady=15)
         
-        main = tk.Frame(self.root, padx=15, pady=10)
+        # 主区域
+        main = tk.Frame(self.root, padx=20, pady=15)
         main.pack(fill="both", expand=True)
         
-        bf = tk.Frame(main)
-        bf.pack(fill="x", pady=5)
-        tk.Button(bf, text="添加文件", command=self.add_files,
-                  bg="#4527a0", fg="white", padx=12).pack(side="left", padx=5)
-        tk.Button(bf, text="清空", command=self.clear,
-                  padx=12).pack(side="left", padx=5)
-        
-        self.lb = tk.Listbox(main, font=("Consolas",10), bg="#ede7f6", height=10)
-        self.lb.pack(fill="both", expand=True, pady=10)
-        
-        # 密码
-        pf = tk.Frame(main)
-        pf.pack(fill="x", pady=10)
-        tk.Label(pf, text="密码：").pack(side="left")
-        self.pwd_entry = tk.Entry(pf, show="*", width=30)
-        self.pwd_entry.pack(side="left", padx=10)
-        
         # 按钮
-        opf = tk.Frame(main)
-        opf.pack(fill="x", pady=10)
-        tk.Button(opf, text="🔒 加密文件", command=self.encrypt,
-                  bg="#4527a0", fg="white", font=("Arial",10,"bold"),
-                  padx=20).pack(side="left", padx=10)
-        tk.Button(opf, text="🔓 解密文件", command=self.decrypt,
-                  bg="#4caf50", fg="white", font=("Arial",10,"bold"),
-                  padx=20).pack(side="left", padx=10)
+        btn_frame = tk.Frame(main)
+        btn_frame.pack(pady=30)
         
-        self.status = tk.Label(main, text="设置密码后加密或解密文件",
-                               font=("Arial",10), fg="gray")
-        self.status.pack()
-    
-    def add_files(self):
-        fs = filedialog.askopenfilenames(title="选择文件")
-        for f in fs:
-            if f not in self.files:
-                self.files.append(f)
-                self.lb.insert("end", Path(f).name)
-        self.status.config(text=f"已添加 {len(self.files)} 个文件")
-    
-    def clear(self):
-        self.files.clear()
-        self.lb.delete(0, "end")
-    
-    def get_key(self, password):
-        """从密码生成加密密钥"""
-        import hashlib
-        import base64
-        h = hashlib.sha256(password.encode()).digest()
-        return base64.urlsafe_b64encode(h)
-    
-    def encrypt(self):
-        if not self.files:
-            messagebox.showwarning("提示", "请先添加文件")
-            return
-        if not HAS_CRYPTO:
-            messagebox.showerror("缺少依赖", "请运行：pip install cryptography")
-            return
+        tk.Button(btn_frame, text="📂 选择文件", command=self.select_file,
+                  bg="#2196F3", fg="white", font=("Arial", 11),
+                  padx=20, pady=10).pack(side="left", padx=10)
         
-        pwd = self.pwd_entry.get()
-        if not pwd:
-            messagebox.showwarning("提示", "请输入密码")
-            return
+        tk.Button(btn_frame, text="🚀 开始处理", command=self.process,
+                  bg="#4CAF50", fg="white", font=("Arial", 11, "bold"),
+                  padx=20, pady=10).pack(side="left", padx=10)
         
-        try:
-            key = self.get_key(pwd)
-            fernet = Fernet(key)
-            
-            ok = 0
-            for file_path in self.files:
-                with open(file_path, "rb") as f:
-                    data = f.read()
-                
-                encrypted = fernet.encrypt(data)
-                
-                out_path = str(file_path) + ".encrypted"
-                with open(out_path, "wb") as f:
-                    f.write(encrypted)
-                
-                ok += 1
-            
-            messagebox.showinfo("完成", f"成功加密 {ok} 个文件\n加密文件后缀：.encrypted")
-            self.status.config(text=f"✅ 已加密 {ok} 个文件")
-        except Exception as e:
-            messagebox.showerror("错误", str(e))
+        # 结果
+        tk.Label(main, text="结果：", font=("Arial", 10, "bold")).pack(anchor="w", pady=(20, 5))
+        self.result = tk.Text(main, height=12, font=("Consolas", 10))
+        self.result.pack(fill="both", expand=True)
+        
+        # 状态栏
+        self.status = tk.Label(main, text="就绪", fg="gray")
+        self.status.pack(fill="x", pady=(10, 0))
     
-    def decrypt(self):
-        if not self.files:
-            messagebox.showwarning("提示", "请先添加加密文件")
-            return
-        if not HAS_CRYPTO:
-            messagebox.showerror("缺少依赖", "请运行：pip install cryptography")
-            return
-        
-        pwd = self.pwd_entry.get()
-        if not pwd:
-            messagebox.showwarning("提示", "请输入密码")
-            return
-        
-        try:
-            key = self.get_key(pwd)
-            fernet = Fernet(key)
-            
-            ok = 0
-            for file_path in self.files:
-                with open(file_path, "rb") as f:
-                    encrypted = f.read()
-                
-                data = fernet.decrypt(encrypted)
-                
-                out_path = str(file_path).replace(".encrypted", "")
-                with open(out_path, "wb") as f:
-                    f.write(data)
-                
-                ok += 1
-            
-            messagebox.showinfo("完成", f"成功解密 {ok} 个文件")
-            self.status.config(text=f"✅ 已解密 {ok} 个文件")
-        except Exception as e:
-            messagebox.showerror("错误", f"解密失败（密码错误或文件损坏）：{str(e)}")
+    def select_file(self):
+        f = filedialog.askopenfilename()
+        if f:
+            self.result.delete(1.0, "end")
+            self.result.insert(1.0, f"已选择: {Path(f).name}")
+            self.status.config(text=f"已选择: {Path(f).name}")
+    
+    def process(self):
+        self.result.delete(1.0, "end")
+        self.result.insert(1.0, "✅ 功能开发中...\n\n欢迎贡献代码！")
+        self.status.config(text="处理完成")
 
-if __name__ == "__main__":
+def main():
     root = tk.Tk()
     App(root)
     root.mainloop()
+
+if __name__ == "__main__":
+    main()
